@@ -9,22 +9,30 @@ function getBreedGroup(breed: Breed): BreedGroup | undefined {
 }
 
 export default function QuizPage() {
-  const allBreeds = getAllBreeds().filter(b => b.apiBreed);
+  // Settings
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [photoCount, setPhotoCount] = useState(1);
+
+  // Filtered breed pool based on selected group
+  const quizBreeds = selectedGroup
+    ? breedGroups.find(g => g.slug === selectedGroup)?.breeds.filter(b => b.apiBreed) ?? []
+    : getAllBreeds().filter(b => b.apiBreed);
+
+  // All breeds for the breed dropdown (always the full quiz pool)
   const allGroupNames = breedGroups.map(g => g.name);
 
   const [currentBreed, setCurrentBreed] = useState<Breed | null>(null);
   const [currentGroup, setCurrentGroup] = useState<BreedGroup | null>(null);
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imageIndex, setImageIndex] = useState(0);
 
   // Breed guess state
   const [breedGuess, setBreedGuess] = useState("");
   const [showBreedSuggestions, setShowBreedSuggestions] = useState(false);
   const [breedHighlightedIndex, setBreedHighlightedIndex] = useState(-1);
 
-  // Group guess state
+  // Group guess state (dropdown)
   const [groupGuess, setGroupGuess] = useState("");
-  const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
-  const [groupHighlightedIndex, setGroupHighlightedIndex] = useState(-1);
 
   // Result state
   const [submitted, setSubmitted] = useState(false);
@@ -37,9 +45,9 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(true);
 
   const breedInputRef = useRef<HTMLInputElement>(null);
-  const groupInputRef = useRef<HTMLInputElement>(null);
 
   const loadNewBreed = useCallback(async () => {
+    if (quizBreeds.length === 0) return;
     setLoading(true);
     setBreedGuess("");
     setGroupGuess("");
@@ -48,57 +56,51 @@ export default function QuizPage() {
     setGroupCorrect(null);
     setRevealed(false);
     setShowBreedSuggestions(false);
-    setShowGroupSuggestions(false);
     setBreedHighlightedIndex(-1);
-    setGroupHighlightedIndex(-1);
+    setImageIndex(0);
 
-    const randomBreed = allBreeds[Math.floor(Math.random() * allBreeds.length)];
+    const randomBreed = quizBreeds[Math.floor(Math.random() * quizBreeds.length)];
     setCurrentBreed(randomBreed);
     setCurrentGroup(getBreedGroup(randomBreed) ?? null);
 
     try {
-      const res = await fetch(`https://dog.ceo/api/breed/${randomBreed.apiBreed}/images/random`);
+      const res = await fetch(`https://dog.ceo/api/breed/${randomBreed.apiBreed}/images/random/${photoCount}`);
       const data = await res.json();
       if (data.status === "success") {
-        setImageUrl(data.message);
+        const urls = Array.isArray(data.message) ? data.message : [data.message];
+        setImageUrls(urls);
       }
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
     breedInputRef.current?.focus();
-  }, [allBreeds]);
+  }, [quizBreeds, photoCount]);
 
   useEffect(() => {
     loadNewBreed();
   }, []);
 
+  // Breed suggestions: show all when focused with empty input, filter when typing
   const breedSuggestions = breedGuess.length > 0
-    ? allBreeds
+    ? quizBreeds
         .filter(b => b.name.toLowerCase().includes(breedGuess.toLowerCase()))
         .slice(0, 8)
-    : [];
-
-  const groupSuggestions = groupGuess.length > 0
-    ? allGroupNames
-        .filter(g => g.toLowerCase().includes(groupGuess.toLowerCase()))
-        .slice(0, 8)
-    : [];
+    : quizBreeds.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 8);
 
   const submitGuess = () => {
     if (!currentBreed || !currentGroup || submitted || revealed) return;
 
     const isBreedCorrect = breedGuess.trim().toLowerCase() === currentBreed.name.toLowerCase();
-    // If breed is guessed and no group provided, default group to correct
-    const isGroupCorrect = groupGuess.trim() === ""
+    // If no group guessed, default to correct when breed is provided
+    const isGroupCorrect = groupGuess === ""
       ? (breedGuess.trim() !== "" ? true : false)
-      : groupGuess.trim().toLowerCase() === currentGroup.name.toLowerCase();
+      : groupGuess === currentGroup.name;
 
     setBreedCorrect(isBreedCorrect);
     setGroupCorrect(isGroupCorrect);
     setSubmitted(true);
     setShowBreedSuggestions(false);
-    setShowGroupSuggestions(false);
     setTotal(t => t + 1);
     if (isBreedCorrect && isGroupCorrect) setScore(s => s + 1);
   };
@@ -107,11 +109,13 @@ export default function QuizPage() {
     if (!currentBreed || submitted || revealed) return;
     setRevealed(true);
     setShowBreedSuggestions(false);
-    setShowGroupSuggestions(false);
     setTotal(t => t + 1);
   };
 
   const isFinished = submitted || revealed;
+
+  // Whether group was implicitly correct (no group guessed, breed guessed)
+  const groupImplied = submitted && groupGuess === "" && breedGuess.trim() !== "";
 
   const handleBreedKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -127,39 +131,17 @@ export default function QuizPage() {
       } else if (breedHighlightedIndex >= 0 && breedSuggestions[breedHighlightedIndex]) {
         setBreedGuess(breedSuggestions[breedHighlightedIndex].name);
         setShowBreedSuggestions(false);
-        groupInputRef.current?.focus();
       } else if (breedSuggestions.length === 1) {
         setBreedGuess(breedSuggestions[0].name);
         setShowBreedSuggestions(false);
-        groupInputRef.current?.focus();
       }
     } else if (e.key === "Escape") {
       setShowBreedSuggestions(false);
     }
   };
 
-  const handleGroupKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setGroupHighlightedIndex(i => Math.min(i + 1, groupSuggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setGroupHighlightedIndex(i => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (isFinished) {
-        loadNewBreed();
-      } else if (groupHighlightedIndex >= 0 && groupSuggestions[groupHighlightedIndex]) {
-        setGroupGuess(groupSuggestions[groupHighlightedIndex]);
-        setShowGroupSuggestions(false);
-      } else if (groupSuggestions.length === 1) {
-        setGroupGuess(groupSuggestions[0]);
-        setShowGroupSuggestions(false);
-      }
-    } else if (e.key === "Escape") {
-      setShowGroupSuggestions(false);
-    }
-  };
+  const prevPhoto = () => setImageIndex(i => Math.max(0, i - 1));
+  const nextPhoto = () => setImageIndex(i => Math.min(imageUrls.length - 1, i + 1));
 
   return (
     <>
@@ -172,28 +154,70 @@ export default function QuizPage() {
       </header>
 
       <div className="quiz-container">
-        <h2 style={{ marginBottom: "1rem" }}>Name That Breed!</h2>
-
-        <div className="quiz-stats">
-          <span>Score: <span className="score">{score}/{total}</span></span>
-          {total > 0 && <span>({Math.round((score / total) * 100)}% accuracy)</span>}
+        {/* Settings bar */}
+        <div className="quiz-settings">
+          <div className="quiz-setting">
+            <label className="quiz-setting-label">Group</label>
+            <select
+              className="quiz-select"
+              value={selectedGroup}
+              onChange={e => setSelectedGroup(e.target.value)}
+            >
+              <option value="">All Groups</option>
+              {breedGroups.map(g => (
+                <option key={g.slug} value={g.slug}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="quiz-setting">
+            <label className="quiz-setting-label">Photos</label>
+            <select
+              className="quiz-select"
+              value={photoCount}
+              onChange={e => setPhotoCount(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+          <div className="quiz-setting">
+            <span className="quiz-setting-label">Score</span>
+            <span className="quiz-score-display">
+              <span className="score">{score}/{total}</span>
+              {total > 0 && <span className="quiz-accuracy"> {Math.round((score / total) * 100)}%</span>}
+            </span>
+          </div>
         </div>
 
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
           <>
-            {imageUrl && <img src={imageUrl} alt="Mystery dog" className="quiz-image" />}
+            {/* Photo area with swipe nav */}
+            <div className="quiz-photo-area">
+              {imageUrls[imageIndex] && (
+                <img src={imageUrls[imageIndex]} alt="Mystery dog" className="quiz-image" />
+              )}
+              {imageUrls.length > 1 && (
+                <div className="quiz-photo-nav">
+                  <button onClick={prevPhoto} disabled={imageIndex === 0} className="photo-nav-btn">&lt;</button>
+                  <span className="photo-counter">{imageIndex + 1}/{imageUrls.length}</span>
+                  <button onClick={nextPhoto} disabled={imageIndex === imageUrls.length - 1} className="photo-nav-btn">&gt;</button>
+                </div>
+              )}
+            </div>
 
+            {/* Guess fields - same line */}
             <div className="quiz-fields">
-              {/* Breed input */}
+              {/* Breed searchable dropdown */}
               <div className="quiz-input-wrapper">
                 <label className="quiz-label">Breed</label>
                 <input
                   ref={breedInputRef}
                   type="text"
                   className={`quiz-input ${isFinished && breedCorrect === true ? "input-correct" : ""} ${isFinished && breedCorrect === false ? "input-incorrect" : ""}`}
-                  placeholder="Type the breed name..."
+                  placeholder="Select breed..."
                   value={breedGuess}
                   onChange={e => {
                     setBreedGuess(e.target.value);
@@ -215,7 +239,6 @@ export default function QuizPage() {
                         onClick={() => {
                           setBreedGuess(breed.name);
                           setShowBreedSuggestions(false);
-                          groupInputRef.current?.focus();
                         }}
                         onMouseEnter={() => setBreedHighlightedIndex(i)}
                       >
@@ -235,47 +258,26 @@ export default function QuizPage() {
                 )}
               </div>
 
-              {/* Group input */}
+              {/* Group dropdown */}
               <div className="quiz-input-wrapper">
-                <label className="quiz-label">Group <span className="quiz-label-hint">(optional)</span></label>
-                <input
-                  ref={groupInputRef}
-                  type="text"
-                  className={`quiz-input ${isFinished && groupCorrect === true ? "input-correct" : ""} ${isFinished && groupCorrect === false ? "input-incorrect" : ""}`}
-                  placeholder="Type the group name..."
+                <label className="quiz-label">Group <span className="quiz-label-hint">(opt)</span></label>
+                <select
+                  className={`quiz-input quiz-group-select ${isFinished && groupCorrect === true ? "input-correct" : ""} ${isFinished && groupCorrect === false ? "input-incorrect" : ""}`}
                   value={groupGuess}
-                  onChange={e => {
-                    setGroupGuess(e.target.value);
-                    setShowGroupSuggestions(true);
-                    setGroupHighlightedIndex(-1);
-                  }}
-                  onFocus={() => setShowGroupSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowGroupSuggestions(false), 200)}
-                  onKeyDown={handleGroupKeyDown}
+                  onChange={e => setGroupGuess(e.target.value)}
                   disabled={isFinished}
-                />
+                >
+                  <option value="">—</option>
+                  {allGroupNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
 
-                {showGroupSuggestions && groupSuggestions.length > 0 && !isFinished && (
-                  <div className="suggestions">
-                    {groupSuggestions.map((name, i) => (
-                      <div
-                        key={name}
-                        className={`suggestion ${i === groupHighlightedIndex ? "highlighted" : ""}`}
-                        onClick={() => {
-                          setGroupGuess(name);
-                          setShowGroupSuggestions(false);
-                        }}
-                        onMouseEnter={() => setGroupHighlightedIndex(i)}
-                      >
-                        {name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {isFinished && groupCorrect !== null && (
+                {submitted && groupCorrect !== null && (
                   <span className={`field-result ${groupCorrect ? "field-correct" : "field-incorrect"}`}>
-                    {groupCorrect ? "✓" : `✗ ${currentGroup?.name}`}
+                    {groupCorrect
+                      ? (groupImplied ? `✓ ${currentGroup?.name}` : "✓")
+                      : `✗ ${currentGroup?.name}`}
                   </span>
                 )}
                 {revealed && (
@@ -284,16 +286,17 @@ export default function QuizPage() {
               </div>
             </div>
 
-            {!isFinished && (
-              <div className="quiz-actions">
-                <button className="submit-btn" onClick={submitGuess}>
-                  Submit Guess
-                </button>
-                <button className="reveal-btn" onClick={revealAnswer}>
-                  Reveal Answer
-                </button>
-              </div>
-            )}
+            {/* Action buttons */}
+            <div className="quiz-actions">
+              {!isFinished ? (
+                <>
+                  <button className="submit-btn" onClick={submitGuess}>Submit</button>
+                  <button className="reveal-btn" onClick={revealAnswer}>Reveal</button>
+                </>
+              ) : (
+                <button className="next-btn" onClick={loadNewBreed}>Next Dog →</button>
+              )}
+            </div>
 
             {submitted && (
               <div className={`result ${breedCorrect && groupCorrect ? "correct" : "incorrect"}`}>
@@ -309,14 +312,8 @@ export default function QuizPage() {
 
             {revealed && (
               <div className="result revealed">
-                Answer: {currentBreed?.name} — {currentGroup?.name}
+                {currentBreed?.name} — {currentGroup?.name}
               </div>
-            )}
-
-            {isFinished && (
-              <button className="next-btn" onClick={loadNewBreed}>
-                Next Dog →
-              </button>
             )}
           </>
         )}
