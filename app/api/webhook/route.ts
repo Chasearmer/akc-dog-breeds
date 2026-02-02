@@ -27,25 +27,26 @@ async function deploy() {
     console.log("Building application...");
     await execAsync("pnpm build", { cwd: PROJECT_DIR });
     
-    console.log("Restarting service...");
-    // Kill current process - spawn new one in background first
-    setTimeout(() => {
-      // Start new process before killing old one
-      const child = spawn("pnpm", ["start"], {
-        cwd: PROJECT_DIR,
-        detached: true,
-        stdio: ["ignore", "ignore", "ignore"],
-        env: { ...process.env }
-      });
-      child.unref();
-      
-      // Give it a moment to start, then exit current process
-      setTimeout(() => {
-        process.exit(0);
-      }, 2000);
-    }, 500);
+    console.log(`[${new Date().toISOString()}] Build complete! Scheduling restart...`);
     
-    console.log(`[${new Date().toISOString()}] Deployment complete!`);
+    // Create a detached restart script that will:
+    // 1. Wait a moment for the response to be sent
+    // 2. Kill the current process
+    // 3. Wait for port to be free
+    // 4. Start new process
+    const restartScript = `
+      sleep 2
+      pkill -9 -f "next start -p 3457" 2>/dev/null || true
+      pkill -9 -f "next-server.*3457" 2>/dev/null || true
+      sleep 3
+      cd ${PROJECT_DIR} && nohup pnpm start > /dev/shm/akc-dog-breeds.log 2>&1 &
+    `;
+    
+    spawn("bash", ["-c", restartScript], {
+      detached: true,
+      stdio: "ignore"
+    }).unref();
+    
     return true;
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Deployment failed:`, error);
