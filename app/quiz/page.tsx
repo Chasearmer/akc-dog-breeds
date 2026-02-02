@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getAllBreeds, breedGroups, type Breed, type BreedGroup } from "@/lib/breeds";
 
 function getBreedGroup(breed: Breed): BreedGroup | undefined {
@@ -13,10 +13,13 @@ export default function QuizPage() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [photoCount, setPhotoCount] = useState(1);
 
-  // Filtered breed pool based on selected group
-  const quizBreeds = selectedGroup
-    ? breedGroups.find(g => g.slug === selectedGroup)?.breeds.filter(b => b.apiBreed) ?? []
-    : getAllBreeds().filter(b => b.apiBreed);
+  // Filtered breed pool based on selected group (memoized to maintain stable reference)
+  const quizBreeds = useMemo(() =>
+    selectedGroup
+      ? breedGroups.find(g => g.slug === selectedGroup)?.breeds.filter(b => b.apiBreed) ?? []
+      : getAllBreeds().filter(b => b.apiBreed),
+    [selectedGroup]
+  );
 
   // All breeds for the breed dropdown (always the full quiz pool)
   const allGroupNames = breedGroups.map(g => g.name);
