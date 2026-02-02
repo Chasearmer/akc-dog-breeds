@@ -79,7 +79,7 @@ export default function QuizPage() {
 
   useEffect(() => {
     loadNewBreed();
-  }, []);
+  }, [loadNewBreed]);
 
   // Breed suggestions: show all when focused with empty input, filter when typing
   const breedSuggestions = breedGuess.length > 0
@@ -294,27 +294,16 @@ export default function QuizPage() {
                   <button className="reveal-btn" onClick={revealAnswer}>Reveal</button>
                 </>
               ) : (
-                <button className="next-btn" onClick={loadNewBreed}>Next Dog →</button>
+                <>
+                  <button className="next-btn" onClick={loadNewBreed}>Next Dog →</button>
+                  {currentBreed && (
+                    <Link href={`/breed/${currentBreed.slug}`} className="learn-more-btn">
+                      Learn More
+                    </Link>
+                  )}
+                </>
               )}
             </div>
-
-            {submitted && (
-              <div className={`result ${breedCorrect && groupCorrect ? "correct" : "incorrect"}`}>
-                {breedCorrect && groupCorrect
-                  ? "✓ Correct!"
-                  : breedCorrect && !groupCorrect
-                  ? "Breed correct, group incorrect"
-                  : !breedCorrect && groupCorrect
-                  ? "Group correct, breed incorrect"
-                  : "✗ Incorrect"}
-              </div>
-            )}
-
-            {revealed && (
-              <div className="result revealed">
-                {currentBreed?.name} — {currentGroup?.name}
-              </div>
-            )}
           </>
         )}
       </div>
