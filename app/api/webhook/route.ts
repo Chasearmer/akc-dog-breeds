@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import crypto from "crypto";
 
@@ -28,9 +28,21 @@ async function deploy() {
     await execAsync("pnpm build", { cwd: PROJECT_DIR });
     
     console.log("Restarting service...");
-    // Small delay to ensure response is sent before we kill the process
-    setTimeout(async () => {
-      await execAsync(`pkill -f "next start -p 3457"`).catch(() => {});
+    // Kill current process - spawn new one in background first
+    setTimeout(() => {
+      // Start new process before killing old one
+      const child = spawn("pnpm", ["start"], {
+        cwd: PROJECT_DIR,
+        detached: true,
+        stdio: ["ignore", "ignore", "ignore"],
+        env: { ...process.env }
+      });
+      child.unref();
+      
+      // Give it a moment to start, then exit current process
+      setTimeout(() => {
+        process.exit(0);
+      }, 2000);
     }, 500);
     
     console.log(`[${new Date().toISOString()}] Deployment complete!`);
@@ -58,7 +70,6 @@ export async function POST(request: NextRequest) {
   });
   
   if (payload.ref === "refs/heads/main" && !payload.deleted) {
-    // Run deployment asynchronously
     deploy();
     return NextResponse.json({ status: "deploying" }, { status: 202 });
   }
