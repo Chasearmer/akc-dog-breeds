@@ -6,6 +6,7 @@ import crypto from "crypto";
 const execAsync = promisify(exec);
 const SECRET = process.env.WEBHOOK_SECRET || "akc-breeds-deploy-secret";
 const PROJECT_DIR = "/home/workspace/Projects/akc-dog-breeds";
+const PORT = 3457;
 
 function verifySignature(payload: string, signature: string | null): boolean {
   if (!signature) return false;
@@ -29,22 +30,42 @@ async function deploy() {
     
     console.log(`[${new Date().toISOString()}] Build complete! Scheduling restart...`);
     
-    // Create a detached restart script that will:
-    // 1. Wait a moment for the response to be sent
-    // 2. Kill the current process
-    // 3. Wait for port to be free
-    // 4. Start new process
+    // Use a detached script that:
+    // 1. Waits for the HTTP response to be sent
+    // 2. Kills the current Next.js server
+    // 3. Waits for the port to be free (with retries)
+    // 4. Starts the new server
     const restartScript = `
-      sleep 2
-      pkill -9 -f "next start -p 3457" 2>/dev/null || true
-      pkill -9 -f "next-server.*3457" 2>/dev/null || true
-      sleep 3
-      cd ${PROJECT_DIR} && nohup pnpm start > /dev/shm/akc-dog-breeds.log 2>&1 &
+      sleep 1
+      
+      # Get the current process PID holding the port
+      OLD_PID=$(fuser ${PORT}/tcp 2>/dev/null || echo "")
+      
+      if [ -n "$OLD_PID" ]; then
+        echo "[$(date -Iseconds)] Killing process $OLD_PID on port ${PORT}..."
+        kill -9 $OLD_PID 2>/dev/null || true
+      fi
+      
+      # Wait for port to be free (up to 10 seconds)
+      for i in {1..20}; do
+        if ! fuser ${PORT}/tcp >/dev/null 2>&1; then
+          echo "[$(date -Iseconds)] Port ${PORT} is free"
+          break
+        fi
+        echo "[$(date -Iseconds)] Waiting for port ${PORT} to be free... (attempt $i)"
+        sleep 0.5
+      done
+      
+      # Start the new server
+      echo "[$(date -Iseconds)] Starting new server..."
+      cd ${PROJECT_DIR}
+      nohup pnpm start >> /dev/shm/akc-dog-breeds.log 2>&1 &
+      echo "[$(date -Iseconds)] Restart complete, new PID: $!"
     `;
     
     spawn("bash", ["-c", restartScript], {
       detached: true,
-      stdio: "ignore"
+      stdio: ["ignore", "pipe", "pipe"]
     }).unref();
     
     return true;
