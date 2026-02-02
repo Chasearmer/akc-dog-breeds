@@ -12,13 +12,15 @@ export default function BreedPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const apiBreed = result?.breed.apiBreed;
+
   useEffect(() => {
-    if (!result?.breed.apiBreed) {
+    if (!apiBreed) {
       setLoading(false);
       return;
     }
-    
-    fetch(`https://dog.ceo/api/breed/${result.breed.apiBreed}/images`)
+
+    fetch(`https://dog.ceo/api/breed/${apiBreed}/images`)
       .then(r => r.json())
       .then(d => {
         if (d.status === "success") {
@@ -28,7 +30,7 @@ export default function BreedPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [result]);
+  }, [apiBreed]);
 
   if (!result) {
     return <div className="container"><p>Breed not found</p></div>;

@@ -24,7 +24,7 @@ export default function GroupPage() {
           .catch(() => {});
       }
     });
-  }, [group]);
+  }, [slug]);
 
   if (!group) {
     return <div className="container"><p>Group not found</p></div>;
