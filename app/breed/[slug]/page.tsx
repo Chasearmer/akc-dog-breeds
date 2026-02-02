@@ -39,24 +39,35 @@ export default function BreedPage() {
   const [loading, setLoading] = useState(true);
 
   const apiBreed = result?.breed.apiBreed;
+  const wikiTitle = result?.breed.wikiTitle;
 
   useEffect(() => {
-    if (!apiBreed) {
+    if (apiBreed) {
+      fetch(`https://dog.ceo/api/breed/${apiBreed}/images`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.status === "success") {
+            const shuffled = d.message.sort(() => Math.random() - 0.5).slice(0, 20);
+            setImages(shuffled);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    } else if (wikiTitle) {
+      fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${wikiTitle}`)
+        .then(r => r.json())
+        .then(d => {
+          const url = d.originalimage?.source || d.thumbnail?.source;
+          if (url) {
+            setImages([url]);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    } else {
       setLoading(false);
-      return;
     }
-
-    fetch(`https://dog.ceo/api/breed/${apiBreed}/images`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.status === "success") {
-          const shuffled = d.message.sort(() => Math.random() - 0.5).slice(0, 20);
-          setImages(shuffled);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [apiBreed]);
+  }, [apiBreed, wikiTitle]);
 
   if (!result) {
     return <div className="container"><p>Breed not found</p></div>;

@@ -16,8 +16,8 @@ export default function QuizPage() {
   // Filtered breed pool based on selected group (memoized to maintain stable reference)
   const quizBreeds = useMemo(() =>
     selectedGroup
-      ? breedGroups.find(g => g.slug === selectedGroup)?.breeds.filter(b => b.apiBreed) ?? []
-      : getAllBreeds().filter(b => b.apiBreed),
+      ? breedGroups.find(g => g.slug === selectedGroup)?.breeds.filter(b => b.apiBreed || b.wikiTitle) ?? []
+      : getAllBreeds().filter(b => b.apiBreed || b.wikiTitle),
     [selectedGroup]
   );
 
@@ -67,11 +67,20 @@ export default function QuizPage() {
     setCurrentGroup(getBreedGroup(randomBreed) ?? null);
 
     try {
-      const res = await fetch(`https://dog.ceo/api/breed/${randomBreed.apiBreed}/images/random/${photoCount}`);
-      const data = await res.json();
-      if (data.status === "success") {
-        const urls = Array.isArray(data.message) ? data.message : [data.message];
-        setImageUrls(urls);
+      if (randomBreed.apiBreed) {
+        const res = await fetch(`https://dog.ceo/api/breed/${randomBreed.apiBreed}/images/random/${photoCount}`);
+        const data = await res.json();
+        if (data.status === "success") {
+          const urls = Array.isArray(data.message) ? data.message : [data.message];
+          setImageUrls(urls);
+        }
+      } else if (randomBreed.wikiTitle) {
+        const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${randomBreed.wikiTitle}`);
+        const data = await res.json();
+        const url = data.originalimage?.source || data.thumbnail?.source;
+        if (url) {
+          setImageUrls([url]);
+        }
       }
     } catch (e) {
       console.error(e);

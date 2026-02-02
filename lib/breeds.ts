@@ -2,6 +2,7 @@ export interface Breed {
   name: string;
   slug: string;
   apiBreed?: string;
+  wikiTitle?: string;
 }
 
 export interface BreedGroup {
@@ -170,11 +171,81 @@ function mapToApi(name: string): string | undefined {
   return mappings[name.toLowerCase()];
 }
 
+function mapToWiki(name: string): string | undefined {
+  // Wikipedia article titles for breeds not in the Dog CEO API.
+  // Used as a fallback image source via the Wikipedia REST API.
+  const mappings: Record<string, string> = {
+    "american foxhound": "American_Foxhound",
+    "american hairless terrier": "American_Hairless_Terrier",
+    "american leopard hound": "American_Leopard_Hound",
+    "american water spaniel": "American_Water_Spaniel",
+    "anatolian shepherd dog": "Anatolian_Shepherd_Dog",
+    "azawakh": "Azawakh",
+    "barbet": "Barbet_(dog_breed)",
+    "bearded collie": "Bearded_Collie",
+    "belgian laekenois": "Laekenois",
+    "bergamasco sheepdog": "Bergamasco_Shepherd",
+    "berger picard": "Berger_Picard",
+    "black russian terrier": "Black_Russian_Terrier",
+    "boerboel": "Boerboel",
+    "boykin spaniel": "Boykin_Spaniel",
+    "bracco italiano": "Bracco_Italiano",
+    "bull terrier": "Bull_Terrier",
+    "canaan dog": "Canaan_Dog",
+    "cane corso": "Cane_Corso",
+    "cesky terrier": "Cesky_Terrier",
+    "chinese crested": "Chinese_Crested_Dog",
+    "chinook": "Chinook_(dog_breed)",
+    "cirneco dell'etna": "Cirneco_dell%27Etna",
+    "danish-swedish farmdog": "Danish%E2%80%93Swedish_Farmdog",
+    "dogo argentino": "Dogo_Argentino",
+    "dogue de bordeaux": "Dogue_de_Bordeaux",
+    "english toy spaniel": "King_Charles_Spaniel",
+    "field spaniel": "Field_Spaniel",
+    "german wirehaired pointer": "German_Wirehaired_Pointer",
+    "glen of imaal terrier": "Glen_of_Imaal_Terrier",
+    "grand basset griffon vendeen": "Grand_Basset_Griffon_Vend%C3%A9en",
+    "harrier": "Harrier_(dog)",
+    "icelandic sheepdog": "Icelandic_Sheepdog",
+    "lagotto romagnolo": "Lagotto_Romagnolo",
+    "lancashire heeler": "Lancashire_Heeler",
+    "lowchen": "L%C3%B6wchen",
+    "manchester terrier": "Manchester_Terrier",
+    "miniature american shepherd": "Miniature_American_Shepherd",
+    "miniature bull terrier": "Miniature_Bull_Terrier",
+    "mudi": "Mudi_(dog)",
+    "neapolitan mastiff": "Neapolitan_Mastiff",
+    "nederlandse kooikerhondje": "Kooikerhondje",
+    "norwegian lundehund": "Norwegian_Lundehund",
+    "nova scotia duck tolling retriever": "Nova_Scotia_Duck_Tolling_Retriever",
+    "petit basset griffon vendeen": "Petit_Basset_Griffon_Vend%C3%A9en",
+    "pharaoh hound": "Pharaoh_Hound",
+    "pointer": "Pointer_(dog_breed)",
+    "polish lowland sheepdog": "Polish_Lowland_Sheepdog",
+    "portuguese podengo pequeno": "Portuguese_Podengo",
+    "portuguese water dog": "Portuguese_Water_Dog",
+    "puli": "Puli_(dog_breed)",
+    "pumi": "Pumi_(dog)",
+    "pyrenean shepherd": "Pyrenean_Shepherd",
+    "rat terrier": "Rat_Terrier",
+    "russian toy": "Russian_Toy",
+    "skye terrier": "Skye_Terrier",
+    "sloughi": "Sloughi",
+    "spinone italiano": "Spinone_Italiano",
+    "swedish vallhund": "Swedish_Vallhund",
+    "tibetan spaniel": "Tibetan_Spaniel",
+    "wirehaired pointing griffon": "Wirehaired_Pointing_Griffon",
+  };
+  return mappings[name.toLowerCase()];
+}
+
 function createBreed(name: string): Breed {
+  const apiBreed = mapToApi(name);
   return {
     name,
     slug: toSlug(name),
-    apiBreed: mapToApi(name)
+    apiBreed,
+    wikiTitle: apiBreed ? undefined : mapToWiki(name),
   };
 }
 
