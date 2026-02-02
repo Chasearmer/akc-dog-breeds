@@ -1,14 +1,17 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0a0a0a;
-  --card: #161616;
-  --border: #2a2a2a;
-  --text: #ededed;
-  --muted: #888;
-  --accent: #3b82f6;
-  --success: #22c55e;
-  --error: #ef4444;
+  --bg: #faf7f2;
+  --card: #ffffff;
+  --border: #e8e0d8;
+  --text: #2d2420;
+  --muted: #8a7e76;
+  --accent: #e87b35;
+  --accent-light: #fff3eb;
+  --success: #2da44e;
+  --error: #d1242f;
+  --shadow: 0 2px 8px rgba(120, 90, 60, 0.08);
+  --shadow-hover: 0 6px 20px rgba(120, 90, 60, 0.12);
 }
 
 body {
@@ -36,21 +39,22 @@ header {
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: 0 1px 4px rgba(120, 90, 60, 0.06);
 }
 
-header h1 { font-size: 1.5rem; }
+header h1 { font-size: 1.5rem; color: var(--accent); }
 
 nav { display: flex; gap: 1.5rem; }
-nav a { color: var(--muted); transition: color 0.2s; }
-nav a:hover, nav a.active { color: var(--text); }
+nav a { color: var(--muted); transition: color 0.2s; font-weight: 500; }
+nav a:hover, nav a.active { color: var(--accent); }
 
 .hero {
   text-align: center;
   padding: 4rem 2rem;
-  background: linear-gradient(to bottom, var(--card), transparent);
+  background: linear-gradient(170deg, var(--accent-light) 0%, var(--bg) 60%);
 }
 
-.hero h2 { font-size: 2.5rem; margin-bottom: 1rem; }
+.hero h2 { font-size: 2.5rem; margin-bottom: 1rem; color: var(--text); }
 .hero p { color: var(--muted); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
 
 .groups-grid {
@@ -63,19 +67,21 @@ nav a:hover, nav a.active { color: var(--text); }
 .group-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 1.5rem;
-  transition: transform 0.2s, border-color 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  box-shadow: var(--shadow);
 }
 
 .group-card:hover {
   transform: translateY(-4px);
   border-color: var(--accent);
+  box-shadow: var(--shadow-hover);
 }
 
 .group-card h3 { font-size: 1.25rem; margin-bottom: 0.5rem; }
 .group-card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
-.group-card .count { color: var(--accent); font-size: 0.85rem; }
+.group-card .count { color: var(--accent); font-size: 0.85rem; font-weight: 600; }
 
 .breeds-grid {
   display: grid;
@@ -86,19 +92,23 @@ nav a:hover, nav a.active { color: var(--text); }
 .breed-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 1rem;
   text-align: center;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow);
 }
 
-.breed-card:hover { border-color: var(--accent); }
+.breed-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-hover);
+}
 
 .breed-image {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--border);
   margin-bottom: 0.75rem;
 }
@@ -109,15 +119,18 @@ nav a:hover, nav a.active { color: var(--text); }
   gap: 0.5rem;
   color: var(--muted);
   margin-bottom: 1.5rem;
+  font-weight: 500;
 }
 
-.back-link:hover { color: var(--text); }
+.back-link:hover { color: var(--accent); }
 
 .gallery {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
+  touch-action: pan-y;
+  user-select: none;
 }
 
 .gallery-main {
@@ -125,8 +138,9 @@ nav a:hover, nav a.active { color: var(--text); }
   max-width: 500px;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--border);
+  box-shadow: var(--shadow);
 }
 
 .gallery-nav {
@@ -141,10 +155,15 @@ nav a:hover, nav a.active { color: var(--text); }
   color: var(--text);
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s;
+  font-weight: 500;
 }
 
-.gallery-nav button:hover { background: var(--border); }
+.gallery-nav button:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 .gallery-counter {
   color: var(--muted);
@@ -209,8 +228,9 @@ nav a:hover, nav a.active { color: var(--text); }
   max-width: 320px;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--border);
+  box-shadow: var(--shadow);
 }
 
 .quiz-photo-nav {
@@ -233,7 +253,11 @@ nav a:hover, nav a.active { color: var(--text); }
 }
 
 .photo-nav-btn:disabled { opacity: 0.3; cursor: default; }
-.photo-nav-btn:not(:disabled):hover { background: var(--border); }
+.photo-nav-btn:not(:disabled):hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .photo-counter { color: var(--muted); font-size: 0.8rem; }
 
 /* Guess fields - inline */
@@ -272,10 +296,13 @@ nav a:hover, nav a.active { color: var(--text); }
   color: var(--text);
   border-radius: 8px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.quiz-input:focus { border-color: var(--accent); }
+.quiz-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 123, 53, 0.15);
+}
 
 .quiz-group-select {
   appearance: auto;
@@ -297,6 +324,7 @@ nav a:hover, nav a.active { color: var(--text); }
   max-height: 180px;
   overflow-y: auto;
   z-index: 10;
+  box-shadow: var(--shadow-hover);
 }
 
 .suggestion {
@@ -307,7 +335,8 @@ nav a:hover, nav a.active { color: var(--text); }
 }
 
 .suggestion:hover, .suggestion.highlighted {
-  background: var(--border);
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .field-result {
@@ -340,11 +369,16 @@ nav a:hover, nav a.active { color: var(--text); }
   color: white;
   border-radius: 8px;
   font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(232, 123, 53, 0.3);
 }
 
-.submit-btn:hover { opacity: 0.9; }
+.submit-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 4px 12px rgba(232, 123, 53, 0.35);
+}
 
 .reveal-btn {
   padding: 0.6rem 1.5rem;
@@ -353,13 +387,14 @@ nav a:hover, nav a.active { color: var(--text); }
   color: var(--muted);
   border-radius: 8px;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
 
 .reveal-btn:hover {
-  border-color: var(--muted);
-  color: var(--text);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .next-btn {
@@ -369,11 +404,16 @@ nav a:hover, nav a.active { color: var(--text); }
   color: white;
   border-radius: 8px;
   font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(232, 123, 53, 0.3);
 }
 
-.next-btn:hover { opacity: 0.9; }
+.next-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 4px 12px rgba(232, 123, 53, 0.35);
+}
 
 .learn-more-btn {
   display: inline-block;
@@ -383,14 +423,15 @@ nav a:hover, nav a.active { color: var(--text); }
   color: var(--muted);
   border-radius: 8px;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
   text-decoration: none;
 }
 
 .learn-more-btn:hover {
-  border-color: var(--muted);
-  color: var(--text);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .loading {
@@ -404,7 +445,8 @@ nav a:hover, nav a.active { color: var(--text); }
 .swipe-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(250, 247, 242, 0.92);
+  backdrop-filter: blur(8px);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -451,8 +493,9 @@ nav a:hover, nav a.active { color: var(--text); }
   max-width: 450px;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--border);
+  box-shadow: var(--shadow-hover);
 }
 
 .swipe-placeholder {
@@ -476,6 +519,7 @@ nav a:hover, nav a.active { color: var(--text); }
 .swipe-detail-link {
   color: var(--accent);
   font-size: 0.9rem;
+  font-weight: 500;
   transition: opacity 0.2s;
 }
 
@@ -493,12 +537,7 @@ nav a:hover, nav a.active { color: var(--text); }
   line-height: 1;
 }
 
-.swipe-arrow:hover { color: var(--text); }
-
-.gallery {
-  touch-action: pan-y;
-  user-select: none;
-}
+.swipe-arrow:hover { color: var(--accent); }
 
 @media (max-width: 640px) {
   .hero h2 { font-size: 1.75rem; }
