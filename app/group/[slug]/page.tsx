@@ -49,6 +49,16 @@ export default function GroupPage() {
             }
           })
           .catch(() => {});
+      } else if (breed.wikiTitle) {
+        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${breed.wikiTitle}`)
+          .then(r => r.json())
+          .then(d => {
+            const url = d.thumbnail?.source || d.originalimage?.source;
+            if (url) {
+              setImages(prev => ({ ...prev, [breed.slug]: url }));
+            }
+          })
+          .catch(() => {});
       }
     });
   }, [slug]);
