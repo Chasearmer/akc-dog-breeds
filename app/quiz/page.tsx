@@ -9,9 +9,28 @@ function getBreedGroup(breed: Breed): BreedGroup | undefined {
 }
 
 export default function QuizPage() {
-  // Settings
-  const [selectedGroup, setSelectedGroup] = useState("");
-  const [photoCount, setPhotoCount] = useState(1);
+  // Settings - initialize from localStorage
+  const [selectedGroup, setSelectedGroup] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("quiz-selectedGroup") ?? "";
+    }
+    return "";
+  });
+  const [photoCount, setPhotoCount] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("quiz-photoCount");
+      return stored ? Number(stored) : 5;
+    }
+    return 5;
+  });
+
+  // Persist settings to localStorage
+  useEffect(() => {
+    localStorage.setItem("quiz-selectedGroup", selectedGroup);
+  }, [selectedGroup]);
+  useEffect(() => {
+    localStorage.setItem("quiz-photoCount", String(photoCount));
+  }, [photoCount]);
 
   // Filtered breed pool based on selected group (memoized to maintain stable reference)
   const quizBreeds = useMemo(() =>
@@ -157,39 +176,43 @@ export default function QuizPage() {
       </header>
 
       <div className="quiz-container">
-        {/* Settings bar */}
-        <div className="quiz-settings">
-          <div className="quiz-setting">
-            <label className="quiz-setting-label">Group</label>
-            <select
-              className="quiz-select"
-              value={selectedGroup}
-              onChange={e => setSelectedGroup(e.target.value)}
-            >
-              <option value="">All Groups</option>
-              {breedGroups.map(g => (
-                <option key={g.slug} value={g.slug}>{g.name}</option>
-              ))}
-            </select>
+        {/* Group selector - capsule button group */}
+        <div className="quiz-settings-stack">
+          <div className="capsule-group">
+            <button
+              className={`capsule-btn ${selectedGroup === "" ? "capsule-active" : ""}`}
+              onClick={() => setSelectedGroup("")}
+            >All</button>
+            {breedGroups.map(g => (
+              <button
+                key={g.slug}
+                className={`capsule-btn ${selectedGroup === g.slug ? "capsule-active" : ""}`}
+                onClick={() => setSelectedGroup(g.slug)}
+              >{g.name.replace(" Group", "")}</button>
+            ))}
           </div>
-          <div className="quiz-setting">
-            <label className="quiz-setting-label">Photos</label>
-            <select
-              className="quiz-select"
-              value={photoCount}
-              onChange={e => setPhotoCount(Number(e.target.value))}
-            >
-              {[1, 2, 3, 4, 5].map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-          <div className="quiz-setting">
-            <span className="quiz-setting-label">Score</span>
-            <span className="quiz-score-display">
-              <span className="score">{score}/{total}</span>
-              {total > 0 && <span className="quiz-accuracy"> {Math.round((score / total) * 100)}%</span>}
-            </span>
+
+          {/* Photos & Score row */}
+          <div className="quiz-settings-row">
+            <div className="quiz-setting-inline">
+              <span className="quiz-setting-label">Photos</span>
+              <div className="capsule-group capsule-small">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    className={`capsule-btn ${photoCount === n ? "capsule-active" : ""}`}
+                    onClick={() => setPhotoCount(n)}
+                  >{n}</button>
+                ))}
+              </div>
+            </div>
+            <div className="quiz-setting-inline">
+              <span className="quiz-setting-label">Score</span>
+              <span className="quiz-score-display">
+                <span className="score">{score}/{total}</span>
+                {total > 0 && <span className="quiz-accuracy"> {Math.round((score / total) * 100)}%</span>}
+              </span>
+            </div>
           </div>
         </div>
 
