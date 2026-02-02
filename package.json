@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -p 3457"
+    "start": "next start -p 3457",
+    "generate-icons": "tsx scripts/generate-breed-emojis.ts"
   },
   "dependencies": {
     "next": "^14.2.0",
@@ -16,6 +17,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
