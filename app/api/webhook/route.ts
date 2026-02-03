@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec, spawn } from "child_process";
 import { promisify } from "util";
-import crypto from "crypto";
+import { shouldDeploy, verifySignature } from "@/lib/webhook";
 
 const execAsync = promisify(exec);
 const SECRET = process.env.WEBHOOK_SECRET || "akc-breeds-deploy-secret";
 const PROJECT_DIR = "/home/workspace/Projects/akc-dog-breeds";
 const PORT = 3457;
-
-function verifySignature(payload: string, signature: string | null): boolean {
-  if (!signature) return false;
-  const [algorithm, hash] = signature.split("=");
-  if (algorithm !== "sha256") return false;
-  const expectedHash = crypto.createHmac("sha256", SECRET).update(payload).digest("hex");
-  return hash === expectedHash;
-}
 
 async function deploy() {
   console.log(`[${new Date().toISOString()}] Starting deployment...`);
@@ -79,7 +71,7 @@ export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
   
-  if (!verifySignature(body, signature)) {
+  if (!verifySignature(body, signature, SECRET)) {
     console.warn(`[${new Date().toISOString()}] Unauthorized webhook attempt`);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -91,7 +83,7 @@ export async function POST(request: NextRequest) {
     pusher: payload.pusher?.name,
   });
   
-  if (payload.ref === "refs/heads/main" && !payload.deleted) {
+  if (shouldDeploy(payload)) {
     deploy();
     return NextResponse.json({ status: "deploying" }, { status: 202 });
   }
