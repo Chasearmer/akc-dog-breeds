@@ -1,5 +1,6 @@
 /**
  * Generate emoji-style icons for all AKC dog breeds using Replicate's sdxl-emoji model.
+ * Automatically removes backgrounds using rembg for transparent PNGs.
  *
  * Usage:
  *   REPLICATE_API_TOKEN=<your-token> npx tsx scripts/generate-breed-emojis.ts
@@ -12,10 +13,14 @@
  *                          Default: all breeds.
  *   SKIP_EXISTING        - Set to "false" to regenerate existing images. Default: "true"
  *   CONCURRENCY          - Number of parallel requests. Default: "4"
+ *
+ * Requirements:
+ *   pip install "rembg[cpu]"  (for background removal)
  */
 
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
 
 // ---------------------------------------------------------------------------
 // Breed list (inlined to avoid import issues with path aliases)
@@ -121,7 +126,9 @@ const BREED_FILTER = process.env.BREEDS
   : null;
 
 const SKIP_EXISTING = process.env.SKIP_EXISTING !== "false";
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || "4", 10);
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || "1", 10);
+const RETRY_DELAY_MS = parseInt(process.env.RETRY_DELAY_MS || "12000", 10);
+const MAX_RETRIES = parseInt(process.env.MAX_RETRIES || "3", 10);
 
 const OUT_DIR = path.resolve(__dirname, "..", "public", "breed-icons");
 const MODEL_VERSION =
@@ -187,6 +194,22 @@ async function pollPrediction(id: string): Promise<ReplicatePrediction> {
 }
 
 // ---------------------------------------------------------------------------
+// Background removal
+// ---------------------------------------------------------------------------
+
+function removeBackground(inputPath: string, outputPath: string): boolean {
+  try {
+    execSync(`rembg i "${inputPath}" "${outputPath}"`, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return true;
+  } catch (err) {
+    console.error(`  WARN  Failed to remove background: ${err}`);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Image generation
 // ---------------------------------------------------------------------------
 
@@ -210,7 +233,7 @@ interface GenerationTask {
   outPath: string;
 }
 
-async function generateOne(task: GenerationTask): Promise<boolean> {
+async function generateOne(task: GenerationTask, retryCount = 0): Promise<boolean> {
   const { breed, view, outPath } = task;
   const label = `${breed.name} (${view})`;
 
@@ -223,8 +246,6 @@ async function generateOne(task: GenerationTask): Promise<boolean> {
   console.log(`  GEN   ${label}`);
 
   try {
-    // Use the Prefer: wait header for synchronous predictions (up to 60s).
-    // If the prediction doesn't finish in time, we fall back to polling.
     const [owner, modelAndVersion] = MODEL_VERSION.split("/");
     const [model, version] = modelAndVersion.split(":");
 
@@ -242,7 +263,6 @@ async function generateOne(task: GenerationTask): Promise<boolean> {
       },
     });
 
-    // If not yet finished (Prefer: wait timed out), poll
     if (prediction.status !== "succeeded" && prediction.status !== "failed") {
       prediction = await pollPrediction(prediction.id);
     }
@@ -257,11 +277,38 @@ async function generateOne(task: GenerationTask): Promise<boolean> {
       return false;
     }
 
-    await downloadImage(prediction.output[0], outPath);
+    // Download to a temp file first
+    const tempPath = outPath.replace(".png", "-temp.png");
+    await downloadImage(prediction.output[0], tempPath);
+
+    // Remove background and save final image
+    console.log(`  RMBG  ${label}`);
+    const bgRemoved = removeBackground(tempPath, outPath);
+    
+    // Clean up temp file
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
+
+    if (!bgRemoved) {
+      console.error(`  FAIL  ${label}: background removal failed`);
+      return false;
+    }
+
     console.log(`  OK    ${label} → ${path.basename(outPath)}`);
     return true;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    
+    // Handle rate limiting with retry
+    if (msg.includes("429") && retryCount < MAX_RETRIES) {
+      const retryAfter = msg.match(/retry_after\\?":\s*(\d+)/)?.[1];
+      const waitMs = retryAfter ? parseInt(retryAfter) * 1000 + 2000 : RETRY_DELAY_MS;
+      console.log(`  WAIT  ${label} — rate limited, retrying in ${Math.ceil(waitMs/1000)}s (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      await sleep(waitMs);
+      return generateOne(task, retryCount + 1);
+    }
+    
     console.error(`  FAIL  ${label}: ${msg}`);
     return false;
   }
@@ -301,30 +348,27 @@ async function main() {
   let failed = 0;
   let skipped = 0;
 
-  // Process in batches of CONCURRENCY
-  for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-    const batch = tasks.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(batch.map(async (task) => {
-      if (SKIP_EXISTING && fs.existsSync(task.outPath)) {
-        console.log(`  SKIP  ${task.breed.name} (${task.view}) — already exists`);
-        skipped++;
-        return true;
-      }
-      return generateOne(task);
-    }));
-
-    for (const ok of results) {
-      if (ok) succeeded++;
-      else failed++;
+  // Process sequentially with rate limit handling
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    
+    if (SKIP_EXISTING && fs.existsSync(task.outPath)) {
+      console.log(`  SKIP  ${task.breed.name} (${task.view}) — already exists`);
+      skipped++;
+      succeeded++;
+      continue;
     }
-
-    // Brief pause between batches to be polite to the API
-    if (i + CONCURRENCY < tasks.length) {
-      await sleep(500);
+    
+    const ok = await generateOne(task);
+    if (ok) succeeded++;
+    else failed++;
+    
+    // Respect rate limits: wait between requests
+    if (i < tasks.length - 1) {
+      await sleep(RETRY_DELAY_MS);
     }
   }
 
-  // Adjust for skip double-count (generateOne also counts skips as success)
   console.log(`\nDone! ${succeeded} succeeded, ${failed} failed, ${skipped} skipped`);
 
   if (failed > 0) {
