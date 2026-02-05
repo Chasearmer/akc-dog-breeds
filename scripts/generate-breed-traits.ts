@@ -6,7 +6,7 @@
  *   npm run generate-traits
  */
 
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { resolve } from "path";
 
@@ -65,7 +65,7 @@ Be accurate to well-known breed characteristics. For example:
 - Basenjis should score 1 on barkingLevel (they don't bark)
 - Poodles should score 1 on shedding (hypoallergenic)
 
-Return ONLY a valid JSON array. No markdown fences, no explanation, no extra text. Just the JSON array.`;
+CRITICAL: Your response must be ONLY a valid JSON array. Do not include ANY text before or after the JSON. No markdown fences, no explanation, no preamble, no "Here is" or "Sure" — just the raw JSON array starting with [ and ending with ].`;
 }
 
 function parseCLIResponse(rawOutput: string): BreedTraits[] {
@@ -78,6 +78,13 @@ function parseCLIResponse(rawOutput: string): BreedTraits[] {
     cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
 
+  // Extract JSON array from response even if there's preamble text
+  const arrayStart = cleaned.indexOf("[");
+  const arrayEnd = cleaned.lastIndexOf("]");
+  if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+    cleaned = cleaned.slice(arrayStart, arrayEnd + 1);
+  }
+
   return JSON.parse(cleaned);
 }
 
@@ -85,15 +92,39 @@ async function main() {
   const allBreeds = getAllBreeds();
   const totalBreeds = allBreeds.length;
 
-  console.log(`Processing ${totalBreeds} breeds in batches of ${BATCH_SIZE}\n`);
+  // Load existing traits for resume support
+  let existingTraits: BreedTraits[] = [];
+  if (existsSync(OUTPUT_PATH)) {
+    try {
+      const raw = readFileSync(OUTPUT_PATH, "utf-8");
+      existingTraits = JSON.parse(raw);
+    } catch {
+      existingTraits = [];
+    }
+  }
+  const existingSlugs = new Set(existingTraits.map((t) => t.slug));
 
-  const allTraits: BreedTraits[] = [];
+  // Filter out already-processed breeds
+  const remainingBreeds = allBreeds.filter((b) => !existingSlugs.has(b.slug));
+
+  console.log(`Total breeds: ${totalBreeds}`);
+  console.log(`Already processed: ${existingSlugs.size}`);
+  console.log(`Remaining: ${remainingBreeds.length}`);
+
+  if (remainingBreeds.length === 0) {
+    console.log("All breeds already processed!");
+    return;
+  }
+
+  console.log(`Processing ${remainingBreeds.length} breeds in batches of ${BATCH_SIZE}\n`);
+
+  const allTraits: BreedTraits[] = [...existingTraits];
   const failedBatches: string[][] = [];
 
-  for (let i = 0; i < totalBreeds; i += BATCH_SIZE) {
-    const batch = allBreeds.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < remainingBreeds.length; i += BATCH_SIZE) {
+    const batch = remainingBreeds.slice(i, i + BATCH_SIZE);
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(totalBreeds / BATCH_SIZE);
+    const totalBatches = Math.ceil(remainingBreeds.length / BATCH_SIZE);
     const breedNames = batch.map((b) => b.name);
 
     console.log(
@@ -104,18 +135,20 @@ async function main() {
 
     try {
       const rawOutput = execSync(
-        `npx -y @anthropic-ai/claude-code -p ${shellEscape(prompt)} --output-format json`,
+        `npx -y @anthropic-ai/claude-code -p ${shellEscape(prompt)} --output-format json --model claude-sonnet-4-5-20250929`,
         {
           encoding: "utf-8",
           maxBuffer: 1024 * 1024 * 10,
-          timeout: 120_000,
+          timeout: 180_000,
           stdio: ["pipe", "pipe", "pipe"],
         }
       );
 
       const batchTraits = parseCLIResponse(rawOutput);
       allTraits.push(...batchTraits);
-      console.log(`  OK — ${batchTraits.length} breeds processed\n`);
+      // Save progress after each batch
+      writeFileSync(OUTPUT_PATH, JSON.stringify(allTraits, null, 2) + "\n");
+      console.log(`  OK — ${batchTraits.length} breeds processed (${allTraits.length} total)\n`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`  FAIL — ${msg}`);
