@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p 3457",
-    "generate-icons": "tsx scripts/generate-breed-emojis.ts"
+    "generate-icons": "tsx scripts/generate-breed-emojis.ts",
+    "generate-traits": "tsx scripts/generate-breed-traits.ts"
   },
   "dependencies": {
     "next": "^14.2.0",
