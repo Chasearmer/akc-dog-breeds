@@ -1,6 +1,3 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
 export interface Breed {
   name: string;
   slug: string;
@@ -389,24 +386,4 @@ export function findBreed(slug: string): { breed: Breed; group: BreedGroup } | u
 
 export function findGroup(slug: string): BreedGroup | undefined {
   return breedGroups.find(g => g.slug === slug);
-}
-
-// --- Breed Traits ---
-
-let traitsCache: BreedTraits[] | null = null;
-
-function loadTraits(): BreedTraits[] {
-  if (traitsCache) return traitsCache;
-  const filePath = join(process.cwd(), 'data', 'breed-traits.json');
-  const raw = readFileSync(filePath, 'utf-8');
-  traitsCache = JSON.parse(raw) as BreedTraits[];
-  return traitsCache;
-}
-
-export function getAllBreedTraits(): BreedTraits[] {
-  return loadTraits();
-}
-
-export function getBreedTraits(slug: string): BreedTraits | undefined {
-  return loadTraits().find(t => t.slug === slug);
 }
